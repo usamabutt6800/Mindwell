@@ -19,25 +19,20 @@ import {
   MenuItem,
   Card,
   CardContent,
-  Divider,
   Chip,
-  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
 } from '@mui/material';
 import {
-  AttachMoney as MoneyIcon,
   CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
   Upload as UploadIcon,
   CreditCard as CreditCardIcon,
   AccountBalance as BankIcon,
   PhoneAndroid as MobileIcon,
   Receipt as ReceiptIcon,
   ArrowBack as ArrowBackIcon,
-  Info as InfoIcon,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 
@@ -50,7 +45,6 @@ const PaymentPage = () => {
   const navigate = useNavigate();
   
   const [activeStep, setActiveStep] = useState(0);
-  const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [selectedMethod, setSelectedMethod] = useState('');
