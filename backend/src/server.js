@@ -228,6 +228,21 @@ app.post('/api/appointments', async (req, res) => {
        <p>Regards,<br/>MindWell Psychology</p>`
     );
 
+    // Send Notification to Admin
+    await sendEmailAndLog(
+      ADMIN_EMAIL,
+      'NEW Appointment Notification – MindWell Psychology',
+      'appointment_admin_notify',
+      `<h3>New Appointment Booked</h3>
+       <p><strong>Client:</strong> ${appointment.clientName}</p>
+       <p><strong>Email:</strong> ${appointment.email}</p>
+       <p><strong>Phone:</strong> ${appointment.phone}</p>
+       <p><strong>Date:</strong> ${new Date(appointment.appointmentDate).toDateString()}</p>
+       <p><strong>Time:</strong> ${appointment.appointmentTime}</p>
+       <p><strong>Service:</strong> ${appointment.serviceType}</p>
+       <p><a href="https://mindwell-psychology-delta.vercel.app/admin/dashboard">View in Dashboard</a></p>`
+    );
+
     res.status(201).json({ success: true, data: appointment });
 
   } catch (error) {
@@ -279,6 +294,21 @@ app.put('/api/admin/appointments/:id', requireAdminAuth, async (req, res) => {
 app.post('/api/contact', async (req, res) => {
   try {
     const contact = await Contact.create({ ...req.body, isRead: false, replied: false });
+    
+    // Notify Admin of new message
+    await sendEmailAndLog(
+      ADMIN_EMAIL,
+      'NEW Inquiry Message – MindWell Psychology',
+      'contact_admin_notify',
+      `<h3>New Inquiry Received</h3>
+       <p><strong>Name:</strong> ${contact.name}</p>
+       <p><strong>Email:</strong> ${contact.email}</p>
+       <p><strong>Subject:</strong> ${contact.subject}</p>
+       <p><strong>Message:</strong></p>
+       <p>${contact.message}</p>
+       <p><a href="https://mindwell-psychology-delta.vercel.app/admin/dashboard">View in Dashboard</a></p>`
+    );
+
     res.json({ success: true, data: contact });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed' });
