@@ -17,7 +17,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-t
 
 // ================= APP =================
 const app = express();
-app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:3000', credentials: true }));
+app.use(cors({ origin: process.env.FRONTEND_URL || '*', credentials: true }));
 app.use(express.json());
 
 // ================= DB =================
@@ -56,7 +56,7 @@ const sendEmailAndLog = async (to, subject, type, html) => {
   try {
     if (!transporter) {
       console.log(`📧 Email skipped (not configured) to ${to} (${type})`);
-      emailLogger.logEmail(to, subject, type + '_skipped', 'Email not configured');
+      await emailLogger.logEmail(to, subject, type + '_skipped', 'Email not configured');
       return false;
     }
 
@@ -68,12 +68,12 @@ const sendEmailAndLog = async (to, subject, type, html) => {
     });
 
     console.log(`📧 Email sent to ${to} (${type})`);
-    emailLogger.logEmail(to, subject, type, html.substring(0, 500));
+    await emailLogger.logEmail(to, subject, type, html.substring(0, 500));
     return true;
 
   } catch (err) {
     console.error('❌ Email failed:', err.message);
-    emailLogger.logEmail(to, subject, type + '_failed', `Error: ${err.message}`);
+    await emailLogger.logEmail(to, subject, type + '_failed', `Error: ${err.message}`);
     return false;
   }
 };
@@ -216,7 +216,8 @@ app.post('/api/appointments', async (req, res) => {
       status: 'pending',
     });
 
-    sendEmailAndLog(
+    // CRITICAL: We MUST await the email on Vercel/Serverless
+    await sendEmailAndLog(
       appointment.email,
       'Appointment Received – MindWell Psychology',
       'appointment_client',
@@ -225,7 +226,7 @@ app.post('/api/appointments', async (req, res) => {
        <p><strong>Date:</strong> ${new Date(appointment.appointmentDate).toDateString()}<br/>
        <strong>Time:</strong> ${appointment.appointmentTime}</p>
        <p>Regards,<br/>MindWell Psychology</p>`
-    ).catch(err => console.error('Email error:', err));
+    );
 
     res.status(201).json({ success: true, data: appointment });
 
@@ -254,6 +255,20 @@ app.put('/api/admin/appointments/:id', requireAdminAuth, async (req, res) => {
       { new: true }
     );
     if (!appointment) return res.status(404).json({ success: false });
+
+    // Send email on status change
+    if (status === 'confirmed' || status === 'cancelled') {
+       await sendEmailAndLog(
+        appointment.email,
+        `Appointment ${status.charAt(0).toUpperCase() + status.slice(1)} – MindWell Psychology`,
+        `appointment_${status}`,
+        `<p>Dear ${appointment.clientName},</p>
+         <p>Your appointment on ${new Date(appointment.appointmentDate).toDateString()} has been <strong>${status}</strong>.</p>
+         ${adminNotes ? `<p><strong>Note:</strong> ${adminNotes}</p>` : ''}
+         <p>Regards,<br/>MindWell Psychology</p>`
+      );
+    }
+
     res.json({ success: true, data: appointment });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed' });
@@ -283,10 +298,23 @@ app.post('/api/admin/contacts/:id/reply', requireAdminAuth, async (req, res) => 
   try {
     const contact = await Contact.findById(req.params.id);
     if (!contact) return res.status(404).json({ success: false });
+    
     contact.replied = true;
     contact.isRead = true;
     contact.replyMessage = req.body.replyMessage;
     await contact.save();
+
+    // Send the reply email and await it
+    await sendEmailAndLog(
+      contact.email,
+      'Reply to your inquiry – MindWell Psychology',
+      'contact_reply',
+      `<p>Dear ${contact.name},</p>
+       <p>Thank you for contacting us. Regarding your message: "${contact.message}"</p>
+       <p><strong>Our Reply:</strong> ${req.body.replyMessage}</p>
+       <p>Regards,<br/>MindWell Psychology</p>`
+    );
+
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed' });
