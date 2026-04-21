@@ -272,16 +272,29 @@ app.put('/api/admin/appointments/:id', requireAdminAuth, async (req, res) => {
     if (!appointment) return res.status(404).json({ success: false });
 
     // Send email on status change
-    if (status === 'confirmed' || status === 'cancelled') {
-       await sendEmailAndLog(
-        appointment.email,
-        `Appointment ${status.charAt(0).toUpperCase() + status.slice(1)} – MindWell Psychology`,
-        `appointment_${status}`,
-        `<p>Dear ${appointment.clientName},</p>
-         <p>Your appointment on ${new Date(appointment.appointmentDate).toDateString()} has been <strong>${status}</strong>.</p>
-         ${adminNotes ? `<p><strong>Note:</strong> ${adminNotes}</p>` : ''}
-         <p>Regards,<br/>MindWell Psychology</p>`
-      );
+    if (status === 'confirmed' || status === 'cancelled' || status === 'completed') {
+       let emailSubject = `Appointment ${status.charAt(0).toUpperCase() + status.slice(1)} – MindWell Psychology`;
+       let emailType = `appointment_${status}`;
+       let emailHtml = `<p>Dear ${appointment.clientName},</p>`;
+
+       if (status === 'confirmed') {
+         emailHtml += `<p>Your appointment on ${new Date(appointment.appointmentDate).toDateString()} has been <strong>confirmed</strong>.</p>`;
+       } else if (status === 'cancelled') {
+         emailHtml += `<p>Your appointment on ${new Date(appointment.appointmentDate).toDateString()} has been <strong>cancelled</strong>.</p>`;
+       } else if (status === 'completed') {
+         emailSubject = `Thank You for Visiting – MindWell Psychology`;
+         emailHtml += `<p>We hope you had a productive session today.</p>
+                       <p>Your appointment on ${new Date(appointment.appointmentDate).toDateString()} has been marked as <strong>completed</strong>.</p>
+                       <p>We are committed to your mental well-being. If you need to book another session, please feel free to visit our website.</p>`;
+       }
+
+       if (adminNotes) {
+         emailHtml += `<p><strong>Admin Note:</strong> ${adminNotes}</p>`;
+       }
+       
+       emailHtml += `<p>Regards,<br/>MindWell Psychology</p>`;
+
+       await sendEmailAndLog(appointment.email, emailSubject, emailType, emailHtml);
     }
 
     res.json({ success: true, data: appointment });

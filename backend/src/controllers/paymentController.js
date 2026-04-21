@@ -108,35 +108,40 @@ exports.submitPayment = async (req, res) => {
     appointment.paymentId = payment._id;
     await appointment.save();
 
-    // Send email notifications - USING FIXED FUNCTION
-    // 1. Email to client
-    sendEmailAndLog(
-      appointment.email,
-      'Payment Received - MindWell Psychology',
-      'payment_received_client',
-      `<p>Dear ${appointment.clientName},</p>
-       <p>Your payment receipt has been received successfully.</p>
-       <p><strong>Amount:</strong> PKR ${payment.amount}</p>
-       <p><strong>Transaction ID:</strong> ${payment.transactionId}</p>
-       <p>We will verify your payment shortly and confirm your appointment.</p>
-       <p>Best regards,<br>MindWell Psychology</p>`
-    ).catch(err => console.error('Email error:', err));
+    // Send email notifications - AWAITED FOR VERCEL
+    try {
+      // 1. Email to client
+      await sendEmailAndLog(
+        appointment.email,
+        'Payment Received - MindWell Psychology',
+        'payment_received_client',
+        `<p>Dear ${appointment.clientName},</p>
+         <p>Your payment receipt has been received successfully.</p>
+         <p><strong>Amount:</strong> PKR ${payment.amount}</p>
+         <p><strong>Transaction ID:</strong> ${payment.transactionId}</p>
+         <p>We will verify your payment shortly and confirm your appointment.</p>
+         <p>Best regards,<br>MindWell Psychology</p>`
+      );
 
-    // 2. Email to admin
-    sendEmailAndLog(
-      ADMIN_EMAIL,
-      '💰 New Payment Receipt Submitted',
-      'payment_received_admin',
-      `<p><strong>New payment receipt submitted</strong></p>
-       <p><strong>Client:</strong> ${appointment.clientName}</p>
-       <p><strong>Email:</strong> ${appointment.email}</p>
-       <p><strong>Phone:</strong> ${appointment.phone}</p>
-       <p><strong>Amount:</strong> PKR ${payment.amount}</p>
-       <p><strong>Method:</strong> ${payment.paymentMethod}</p>
-       <p><strong>Transaction ID:</strong> ${payment.transactionId}</p>
-       <p><strong>Appointment Date:</strong> ${new Date(appointment.appointmentDate).toDateString()} at ${appointment.appointmentTime}</p>
-       <p>Please verify this payment in the admin dashboard.</p>`
-    ).catch(err => console.error('Email error:', err));
+      // 2. Email to admin
+      await sendEmailAndLog(
+        ADMIN_EMAIL,
+        '💰 New Payment Receipt Submitted',
+        'payment_received_admin',
+        `<p><strong>New payment receipt submitted</strong></p>
+         <p><strong>Client:</strong> ${appointment.clientName}</p>
+         <p><strong>Email:</strong> ${appointment.email}</p>
+         <p><strong>Phone:</strong> ${appointment.phone}</p>
+         <p><strong>Amount:</strong> PKR ${payment.amount}</p>
+         <p><strong>Method:</strong> ${payment.paymentMethod}</p>
+         <p><strong>Transaction ID:</strong> ${payment.transactionId}</p>
+         <p><strong>Appointment Date:</strong> ${new Date(appointment.appointmentDate).toDateString()} at ${appointment.appointmentTime}</p>
+         <p>Please verify this payment in the admin dashboard.</p>`
+      );
+    } catch (emailErr) {
+      console.error('Email notification failed:', emailErr.message);
+      // We don't block the response if email fails
+    }
 
     res.status(201).json({
       success: true,
@@ -277,54 +282,58 @@ exports.verifyPayment = async (req, res) => {
       await appointment.save();
     }
 
-    // Send confirmation email to client
-    sendEmailAndLog(
-      payment.clientEmail,
-      'Payment Verified - Appointment Confirmed',
-      'payment_verified_client',
-      `<p>Dear ${payment.clientName},</p>
-       <p>Your payment has been verified successfully!</p>
-       
-       <p><strong>Appointment Confirmed:</strong></p>
-       <p><strong>Date:</strong> ${appointment?.appointmentDate ? new Date(appointment.appointmentDate).toDateString() : 'To be scheduled'}</p>
-       <p><strong>Time:</strong> ${appointment?.appointmentTime || 'To be confirmed'}</p>
-       
-       <p><strong>Payment Details:</strong></p>
-       <p><strong>Amount:</strong> PKR ${payment.amount}</p>
-       <p><strong>Transaction ID:</strong> ${payment.transactionId}</p>
-       <p><strong>Verified by:</strong> ${payment.verifiedBy}</p>
-       
-       ${notes ? `<p><strong>Notes:</strong> ${notes}</p>` : ''}
-       
-       <p>Your appointment is now confirmed. You will receive a reminder before your session.</p>
-       <p>Best regards,<br>MindWell Psychology</p>`
-    ).catch(err => console.error('Email error:', err));
+    // Send confirmation email to client - AWAITED
+    try {
+      await sendEmailAndLog(
+        payment.clientEmail,
+        'Payment Verified - Appointment Confirmed',
+        'payment_verified_client',
+        `<p>Dear ${payment.clientName},</p>
+         <p>Your payment has been verified successfully!</p>
+         
+         <p><strong>Appointment Confirmed:</strong></p>
+         <p><strong>Date:</strong> ${appointment?.appointmentDate ? new Date(appointment.appointmentDate).toDateString() : 'To be scheduled'}</p>
+         <p><strong>Time:</strong> ${appointment?.appointmentTime || 'To be confirmed'}</p>
+         
+         <p><strong>Payment Details:</strong></p>
+         <p><strong>Amount:</strong> PKR ${payment.amount}</p>
+         <p><strong>Transaction ID:</strong> ${payment.transactionId}</p>
+         <p><strong>Verified by:</strong> ${payment.verifiedBy}</p>
+         
+         ${notes ? `<p><strong>Notes:</strong> ${notes}</p>` : ''}
+         
+         <p>Your appointment is now confirmed. You will receive a reminder before your session.</p>
+         <p>Best regards,<br>MindWell Psychology</p>`
+      );
 
-    // Send notification to admin
-    sendEmailAndLog(
-      ADMIN_EMAIL,
-      '✅ Payment Verified Successfully',
-      'payment_verified_admin',
-      `<p><strong>Payment verified successfully</strong></p>
-       
-       <p><strong>Client:</strong> ${payment.clientName}</p>
-       <p><strong>Email:</strong> ${payment.clientEmail}</p>
-       <p><strong>Phone:</strong> ${payment.clientPhone}</p>
-       <p><strong>Amount:</strong> PKR ${payment.amount}</p>
-       <p><strong>Method:</strong> ${payment.paymentMethod}</p>
-       <p><strong>Transaction ID:</strong> ${payment.transactionId}</p>
-       
-       <p><strong>Appointment:</strong></p>
-       <p>Date: ${appointment ? new Date(appointment.appointmentDate).toDateString() : 'N/A'}</p>
-       <p>Time: ${appointment ? appointment.appointmentTime : 'N/A'}</p>
-       
-       <p><strong>Verified by:</strong> ${payment.verifiedBy}</p>
-       <p><strong>Verification Notes:</strong> ${notes || 'None'}</p>
-       
-       <p><a href="${payment.receiptImage}" target="_blank">View Receipt</a></p>
-       
-       <p>Payment and appointment have been confirmed.</p>`
-    ).catch(err => console.error('Email error:', err));
+      // Send notification to admin - AWAITED
+      await sendEmailAndLog(
+        ADMIN_EMAIL,
+        '✅ Payment Verified Successfully',
+        'payment_verified_admin',
+        `<p><strong>Payment verified successfully</strong></p>
+         
+         <p><strong>Client:</strong> ${payment.clientName}</p>
+         <p><strong>Email:</strong> ${payment.clientEmail}</p>
+         <p><strong>Phone:</strong> ${payment.clientPhone}</p>
+         <p><strong>Amount:</strong> PKR ${payment.amount}</p>
+         <p><strong>Method:</strong> ${payment.paymentMethod}</p>
+         <p><strong>Transaction ID:</strong> ${payment.transactionId}</p>
+         
+         <p><strong>Appointment:</strong></p>
+         <p>Date: ${appointment ? new Date(appointment.appointmentDate).toDateString() : 'N/A'}</p>
+         <p>Time: ${appointment ? appointment.appointmentTime : 'N/A'}</p>
+         
+         <p><strong>Verified by:</strong> ${payment.verifiedBy}</p>
+         <p><strong>Verification Notes:</strong> ${notes || 'None'}</p>
+         
+         <p><a href="${payment.receiptImage}" target="_blank">View Receipt</a></p>
+         
+         <p>Payment and appointment have been confirmed.</p>`
+      );
+    } catch (emailErr) {
+      console.error('Email verification notification failed:', emailErr.message);
+    }
 
     res.json({
       success: true,
